@@ -67,7 +67,7 @@ type RelatedRecipe =
   | null;
 
 type UserProfile = {
-  restaurant_id: number | null;
+  restaurant_id: string | null;
 };
 
 type MenuClientProps = {
@@ -146,7 +146,7 @@ export function MenuClient({ saveError }: MenuClientProps) {
     }
 
     const { data: profile, error: profileError } = await supabase
-      .from("user_profiles")
+      .from("users_profiles")
       .select("restaurant_id")
       .eq("auth_user_id", user.id)
       .single();

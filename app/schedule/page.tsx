@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase";
+import { getCurrentUserRestaurantId } from "@/lib/current-restaurant";
 import { redirect } from "next/navigation";
 import { ScheduleGrid } from "./schedule-grid";
 
@@ -49,32 +50,7 @@ function getDefaultWeekStart() {
   return date.toISOString().slice(0, 10);
 }
 
-type UserProfile = {
-  restaurant_id: number | null;
-};
-
-async function getRestaurantId() {
-  const supabase = getSupabaseClient();
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-
-  if (userError || !userData.user) {
-    redirect("/login");
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("user_profiles")
-    .select("restaurant_id")
-    .eq("auth_user_id", userData.user.id)
-    .single();
-
-  if (profileError || !(profile as UserProfile | null)?.restaurant_id) {
-    return null;
-  }
-
-  return (profile as UserProfile).restaurant_id;
-}
-
-async function getEmployees(department: Department, restaurantId: number) {
+async function getEmployees(department: Department, restaurantId: string) {
   const supabase = getSupabaseClient();
 
   return supabase
@@ -86,7 +62,7 @@ async function getEmployees(department: Department, restaurantId: number) {
     .order("full_name", { ascending: true });
 }
 
-async function getShiftTypes(department: Department, restaurantId: number) {
+async function getShiftTypes(department: Department, restaurantId: string) {
   const supabase = getSupabaseClient();
 
   return supabase
@@ -101,7 +77,7 @@ async function getShiftTypes(department: Department, restaurantId: number) {
 async function getWeeklySchedule(
   department: Department,
   weekStart: string,
-  restaurantId: number,
+  restaurantId: string,
 ) {
   const supabase = getSupabaseClient();
 
@@ -141,7 +117,12 @@ export default async function SchedulePage({
   const params = await searchParams;
   const department = getDepartment(params?.department);
   const weekStart = params?.week_start || getDefaultWeekStart();
-  const restaurantId = await getRestaurantId();
+  const restaurantId = await getCurrentUserRestaurantId().catch(
+    (caughtError: Error) => {
+      console.error(caughtError);
+      return null;
+    },
+  );
   const noRestaurantError = restaurantId
     ? null
     : new Error("No restaurant profile found.");

@@ -12,6 +12,7 @@ type Supplier = {
 type CostCategory = {
   id: number;
   name: string | null;
+  restaurant_id: string | null;
 };
 
 type CostSubcategory = {

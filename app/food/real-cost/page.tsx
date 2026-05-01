@@ -1,11 +1,7 @@
 import { getSupabaseClient } from "@/lib/supabase";
-import { redirect } from "next/navigation";
+import { getCurrentUserRestaurantId } from "@/lib/current-restaurant";
 
 type Grouping = "daily" | "weekly" | "monthly";
-
-type UserProfile = {
-  restaurant_id: number | null;
-};
 
 type SaleRow = {
   sale_date: string | null;
@@ -164,30 +160,7 @@ function formatPercent(value: number | null) {
   return `${formatAmount(value)} %`;
 }
 
-async function getRestaurantId() {
-  const supabase = getSupabaseClient();
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-
-  if (userError || !userData.user) {
-    redirect("/login");
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("user_profiles")
-    .select("restaurant_id")
-    .eq("auth_user_id", userData.user.id)
-    .single();
-
-  if (profileError || !(profile as UserProfile | null)?.restaurant_id) {
-    redirect(
-      `/food/real-cost?error=${encodeURIComponent("No restaurant profile found")}`,
-    );
-  }
-
-  return (profile as UserProfile).restaurant_id as number;
-}
-
-async function getSales(restaurantId: number) {
+async function getSales(restaurantId: string) {
   const supabase = getSupabaseClient();
 
   return supabase
@@ -205,7 +178,7 @@ async function getSales(restaurantId: number) {
     .eq("restaurant_id", restaurantId);
 }
 
-async function getInvoices(restaurantId: number) {
+async function getInvoices(restaurantId: string) {
   const supabase = getSupabaseClient();
 
   return supabase
@@ -214,7 +187,7 @@ async function getInvoices(restaurantId: number) {
     .eq("restaurant_id", restaurantId);
 }
 
-async function getInventoryCounts(restaurantId: number) {
+async function getInventoryCounts(restaurantId: string) {
   const supabase = getSupabaseClient();
 
   return supabase
@@ -320,7 +293,7 @@ export default async function RealFoodCostPage({
     grouping,
     toDate: params?.to_date ?? "",
   };
-  const restaurantId = await getRestaurantId();
+  const restaurantId = await getCurrentUserRestaurantId();
   const { data: salesData, error: salesError } = await getSales(restaurantId);
   const { data: invoiceData, error: invoiceError } =
     await getInvoices(restaurantId);

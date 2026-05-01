@@ -14,12 +14,12 @@ type Employee = {
   id: number;
   phone: string | null;
   position: string | null;
-  restaurant_id: number | null;
+  restaurant_id: string | null;
   updated_at: string | null;
 };
 
 type UserProfile = {
-  restaurant_id: number | null;
+  restaurant_id: string | null;
 };
 
 type EmployeeClientProps = {
@@ -77,7 +77,7 @@ export function EmployeeClient({
     }
 
     const { data: profile, error: profileError } = await supabase
-      .from("user_profiles")
+      .from("users_profiles")
       .select("restaurant_id")
       .eq("auth_user_id", user.id)
       .single();

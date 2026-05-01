@@ -1,6 +1,7 @@
 "use server";
 
 import { getSupabaseClient } from "@/lib/supabase";
+import { getCurrentUserRestaurantId } from "@/lib/current-restaurant";
 import { redirect } from "next/navigation";
 
 type Department = "kitchen" | "bar";
@@ -25,8 +26,9 @@ export async function createEmployee(formData: FormData) {
   const department = getDepartment(formData);
   const redirectPath = getRedirectPath(department);
   const supabase = getSupabaseClient();
+  const restaurantId = await getCurrentUserRestaurantId();
   const { error } = await supabase.from("employees").insert({
-    restaurant_id: 1,
+    restaurant_id: restaurantId,
     department,
     full_name: String(formData.get("full_name") ?? "").trim(),
     position: String(formData.get("position") ?? "").trim(),
@@ -47,6 +49,7 @@ export async function updateEmployee(formData: FormData) {
   const department = getDepartment(formData);
   const redirectPath = getRedirectPath(department);
   const supabase = getSupabaseClient();
+  const restaurantId = await getCurrentUserRestaurantId();
   const { error } = await supabase
     .from("employees")
     .update({
@@ -58,7 +61,7 @@ export async function updateEmployee(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)
-    .eq("restaurant_id", 1)
+    .eq("restaurant_id", restaurantId)
     .eq("department", department);
 
   if (error) {
@@ -73,11 +76,12 @@ export async function deleteEmployee(formData: FormData) {
   const department = getDepartment(formData);
   const redirectPath = getRedirectPath(department);
   const supabase = getSupabaseClient();
+  const restaurantId = await getCurrentUserRestaurantId();
   const { error } = await supabase
     .from("employees")
     .delete()
     .eq("id", id)
-    .eq("restaurant_id", 1)
+    .eq("restaurant_id", restaurantId)
     .eq("department", department);
 
   if (error) {

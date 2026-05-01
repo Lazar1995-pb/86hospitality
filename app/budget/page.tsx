@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase";
+import { getCurrentUserRestaurantId } from "@/lib/current-restaurant";
 import { BudgetForm } from "./budget-form";
 
 type CostCategory = {
@@ -28,17 +29,17 @@ type Budget = {
   budget_lines: BudgetLine[];
 };
 
-async function getCostCategories() {
+async function getCostCategories(restaurantId: string) {
   const supabase = getSupabaseClient();
 
   return supabase
     .from("cost_categories")
     .select("id, name")
-    .eq("restaurant_id", 1)
+    .eq("restaurant_id", restaurantId)
     .order("name", { ascending: true });
 }
 
-async function getBudgets() {
+async function getBudgets(restaurantId: string) {
   const supabase = getSupabaseClient();
 
   return supabase
@@ -59,7 +60,7 @@ async function getBudgets() {
         )
       `,
     )
-    .eq("restaurant_id", 1)
+    .eq("restaurant_id", restaurantId)
     .order("period_start", { ascending: false });
 }
 
@@ -100,19 +101,27 @@ export default async function BudgetPage({
   searchParams?: Promise<{ error?: string }>;
 }) {
   const params = await searchParams;
+  const restaurantId = await getCurrentUserRestaurantId().catch(
+    (caughtError: Error) => {
+      console.error(caughtError);
+      return null;
+    },
+  );
   const {
     data: costCategoryData,
     error: costCategoryError,
-  } = await getCostCategories().catch((caughtError: Error) => ({
-    data: null,
-    error: caughtError,
-  }));
-  const { data: budgetData, error: budgetError } = await getBudgets().catch(
-    (caughtError: Error) => ({
+  } = restaurantId
+    ? await getCostCategories(restaurantId).catch((caughtError: Error) => ({
       data: null,
       error: caughtError,
-    }),
-  );
+    }))
+    : { data: null, error: new Error("No restaurant profile found for this user.") };
+  const { data: budgetData, error: budgetError } = restaurantId
+    ? await getBudgets(restaurantId).catch((caughtError: Error) => ({
+        data: null,
+        error: caughtError,
+      }))
+    : { data: null, error: new Error("No restaurant profile found for this user.") };
   const costCategories = (costCategoryData ?? []) as CostCategory[];
   const budgets = (budgetData ?? []) as Budget[];
 

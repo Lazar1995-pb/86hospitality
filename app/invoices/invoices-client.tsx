@@ -44,7 +44,7 @@ type Supplier = {
 };
 
 type UserProfile = {
-  restaurant_id: number | null;
+  restaurant_id: string | null;
 };
 
 function formatDate(value: string | null) {
@@ -105,7 +105,7 @@ export function InvoicesClient() {
     }
 
     const { data: profile, error: profileError } = await supabase
-      .from("user_profiles")
+      .from("users_profiles")
       .select("restaurant_id")
       .eq("auth_user_id", user.id)
       .single();

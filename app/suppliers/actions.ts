@@ -1,12 +1,14 @@
 "use server";
 
 import { getSupabaseClient } from "@/lib/supabase";
+import { getCurrentUserRestaurantId } from "@/lib/current-restaurant";
 import { redirect } from "next/navigation";
 
 export async function createSupplier(formData: FormData) {
   const supabase = getSupabaseClient();
+  const restaurantId = await getCurrentUserRestaurantId();
   const { error } = await supabase.from("suppliers").insert({
-    restaurant_id: 1,
+    restaurant_id: restaurantId,
     name: String(formData.get("name") ?? "").trim(),
     company_name: String(formData.get("company_name") ?? "").trim(),
     pib: String(formData.get("pib") ?? "").trim(),

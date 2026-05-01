@@ -1,11 +1,8 @@
 "use server";
 
 import { getSupabaseClient } from "@/lib/supabase";
+import { getCurrentUserRestaurantId } from "@/lib/current-restaurant";
 import { redirect } from "next/navigation";
-
-type UserProfile = {
-  restaurant_id: number | null;
-};
 
 function getRedirectPath(formData: FormData, messageKey: string, message: string) {
   const params = new URLSearchParams();
@@ -32,23 +29,14 @@ export async function createKpiCategory(formData: FormData) {
   }
 
   const supabase = getSupabaseClient();
-  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const restaurantId = await getCurrentUserRestaurantId().catch(
+    (caughtError: Error) => {
+      console.error(caughtError);
+      return null;
+    },
+  );
 
-  if (userError || !userData.user) {
-    console.error("Could not load authenticated user:", userError);
-    redirect("/login");
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("user_profiles")
-    .select("restaurant_id")
-    .eq("auth_user_id", userData.user.id)
-    .single();
-
-  const restaurantId = (profile as UserProfile | null)?.restaurant_id;
-
-  if (profileError || !restaurantId) {
-    console.error("Could not load user profile:", profileError);
+  if (!restaurantId) {
     redirect(
       getRedirectPath(formData, "category_error", "No restaurant profile found."),
     );

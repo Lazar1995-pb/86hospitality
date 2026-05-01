@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase";
+import { getCurrentUserRestaurantId } from "@/lib/current-restaurant";
 import { SalesForm } from "./sales-form";
 
 type MenuItem = {
@@ -23,17 +24,17 @@ type Sale = {
     | null;
 };
 
-async function getMenuItems() {
+async function getMenuItems(restaurantId: string) {
   const supabase = getSupabaseClient();
 
   return supabase
     .from("menu_items")
     .select("id, name, selling_price")
-    .eq("restaurant_id", 1)
+    .eq("restaurant_id", restaurantId)
     .order("name", { ascending: true });
 }
 
-async function getSales() {
+async function getSales(restaurantId: string) {
   const supabase = getSupabaseClient();
 
   return supabase
@@ -50,7 +51,7 @@ async function getSales() {
         )
       `,
     )
-    .eq("restaurant_id", 1)
+    .eq("restaurant_id", restaurantId)
     .order("sale_date", { ascending: false });
 }
 
@@ -93,19 +94,27 @@ export default async function SalesPage({
   }>;
 }) {
   const params = await searchParams;
+  const restaurantId = await getCurrentUserRestaurantId().catch(
+    (caughtError: Error) => {
+      console.error(caughtError);
+      return null;
+    },
+  );
   const {
     data: menuItemData,
     error: menuItemError,
-  } = await getMenuItems().catch((caughtError: Error) => ({
-    data: null,
-    error: caughtError,
-  }));
-  const { data: salesData, error: salesError } = await getSales().catch(
-    (caughtError: Error) => ({
-      data: null,
-      error: caughtError,
-    }),
-  );
+  } = restaurantId
+    ? await getMenuItems(restaurantId).catch((caughtError: Error) => ({
+        data: null,
+        error: caughtError,
+      }))
+    : { data: null, error: new Error("No restaurant profile found for this user.") };
+  const { data: salesData, error: salesError } = restaurantId
+    ? await getSales(restaurantId).catch((caughtError: Error) => ({
+        data: null,
+        error: caughtError,
+      }))
+    : { data: null, error: new Error("No restaurant profile found for this user.") };
   const menuItems = (menuItemData ?? []) as MenuItem[];
   const fromDate = params?.from_date ?? "";
   const toDate = params?.to_date ?? "";

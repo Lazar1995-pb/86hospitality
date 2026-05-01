@@ -1,10 +1,12 @@
 "use server";
 
 import { getSupabaseClient } from "@/lib/supabase";
+import { getCurrentUserRestaurantId } from "@/lib/current-restaurant";
 import { redirect } from "next/navigation";
 
 export async function createSale(formData: FormData) {
   const supabase = getSupabaseClient();
+  const restaurantId = await getCurrentUserRestaurantId();
   const menuItemValue = String(formData.get("menu_item_id") ?? "");
   const menuItemId = menuItemValue ? Number(menuItemValue) : null;
   const quantityValue = String(formData.get("quantity") ?? "");
@@ -14,7 +16,7 @@ export async function createSale(formData: FormData) {
   const revenue = Number(formData.get("revenue"));
 
   const { error } = await supabase.from("sales").insert({
-    restaurant_id: 1,
+    restaurant_id: restaurantId,
     menu_item_id: menuItemId,
     quantity: menuItemId ? quantity : null,
     revenue,

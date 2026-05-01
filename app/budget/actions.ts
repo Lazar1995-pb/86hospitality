@@ -1,10 +1,12 @@
 "use server";
 
 import { getSupabaseClient } from "@/lib/supabase";
+import { getCurrentUserRestaurantId } from "@/lib/current-restaurant";
 import { redirect } from "next/navigation";
 
 export async function createBudget(formData: FormData) {
   const supabase = getSupabaseClient();
+  const restaurantId = await getCurrentUserRestaurantId();
   const name = String(formData.get("name") ?? "").trim();
   const periodStart = String(formData.get("period_start") ?? "");
   const periodEnd = String(formData.get("period_end") ?? "");
@@ -15,7 +17,7 @@ export async function createBudget(formData: FormData) {
   const { data: budget, error: budgetError } = await supabase
     .from("budgets")
     .insert({
-      restaurant_id: 1,
+      restaurant_id: restaurantId,
       name,
       period_start: periodStart,
       period_end: periodEnd,

@@ -15,6 +15,7 @@ type Supplier = {
 type CostCategory = {
   id: number;
   name: string | null;
+  restaurant_id: string | null;
 };
 
 type CostSubcategory = {
@@ -24,7 +25,7 @@ type CostSubcategory = {
 };
 
 type UserProfile = {
-  restaurant_id: number | null;
+  restaurant_id: string | null;
 };
 
 type NewInvoicePageClientProps = {
@@ -53,6 +54,53 @@ function dedupeSubcategories(items: CostSubcategory[]) {
     seen.add(key);
     return true;
   });
+}
+
+async function getUserProfileRestaurantId(
+  supabase: ReturnType<typeof getSupabaseBrowserClient>,
+  userId: string,
+) {
+  const authProfileResult = await supabase
+    .from("users_profiles")
+    .select("restaurant_id")
+    .eq("auth_user_id", userId)
+    .maybeSingle();
+
+  if (!authProfileResult.error && authProfileResult.data?.restaurant_id) {
+    return {
+      error: null,
+      restaurantId: (authProfileResult.data as UserProfile).restaurant_id,
+    };
+  }
+
+  if (authProfileResult.error) {
+    console.error(
+      "Could not load users_profiles by auth_user_id:",
+      authProfileResult.error,
+    );
+  }
+
+  const userProfileResult = await supabase
+    .from("users_profiles")
+    .select("restaurant_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (userProfileResult.error) {
+    console.error(
+      "Could not load users_profiles by user_id:",
+      userProfileResult.error,
+    );
+    return {
+      error: userProfileResult.error,
+      restaurantId: null,
+    };
+  }
+
+  return {
+    error: null,
+    restaurantId: (userProfileResult.data as UserProfile | null)?.restaurant_id ?? null,
+  };
 }
 
 export function NewInvoicePageClient({ saveError }: NewInvoicePageClientProps) {
@@ -89,13 +137,8 @@ export function NewInvoicePageClient({ saveError }: NewInvoicePageClientProps) {
         return;
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from("user_profiles")
-        .select("restaurant_id")
-        .eq("auth_user_id", user.id)
-        .single();
-
-      const restaurantId = (profile as UserProfile | null)?.restaurant_id;
+      const { error: profileError, restaurantId } =
+        await getUserProfileRestaurantId(supabase, user.id);
 
       if (profileError || !restaurantId) {
         console.error("Could not load user profile:", profileError);
@@ -106,27 +149,31 @@ export function NewInvoicePageClient({ saveError }: NewInvoicePageClientProps) {
         return;
       }
 
-      const [supplierResult, categoryResult, subcategoryResult] =
-        await Promise.all([
-          supabase
-            .from("suppliers")
-            .select("id, name, company_name")
-            .eq("restaurant_id", restaurantId)
-            .order("name", { ascending: true }),
-          supabase
-            .from("cost_categories")
-            .select("id, name")
-            .eq("restaurant_id", restaurantId)
-            .order("name", { ascending: true }),
-          supabase
-            .from("cost_subcategories")
-            .select("id, name, cost_category_id")
-            .eq("restaurant_id", restaurantId)
-            .order("name", { ascending: true }),
-        ]);
+      const supplierResult = await supabase
+        .from("suppliers")
+        .select("id, name, company_name")
+        .eq("restaurant_id", restaurantId)
+        .order("name", { ascending: true });
+      const categoryResult = await supabase
+        .from("cost_categories")
+        .select("id, restaurant_id, name")
+        .eq("restaurant_id", restaurantId)
+        .order("name", { ascending: true });
+      const subcategoryResult = await supabase
+        .from("cost_subcategories")
+        .select("id, name, cost_category_id")
+        .eq("restaurant_id", restaurantId)
+        .order("name", { ascending: true });
 
       if (!isMounted) {
         return;
+      }
+
+      if (categoryResult.error) {
+        console.error(
+          "Could not load KPI categories from cost_categories:",
+          categoryResult.error,
+        );
       }
 
       const nextErrors = [
@@ -141,7 +188,7 @@ export function NewInvoicePageClient({ saveError }: NewInvoicePageClientProps) {
           : "",
       ].filter(Boolean);
 
-      nextErrors.forEach((error) => console.log(error));
+      nextErrors.forEach((error) => console.error(error));
 
       setErrors(nextErrors);
       setSuppliers(dedupeByName((supplierResult.data ?? []) as Supplier[]));

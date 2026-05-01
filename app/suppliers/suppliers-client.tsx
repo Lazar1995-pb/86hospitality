@@ -16,7 +16,7 @@ type Supplier = {
 };
 
 type UserProfile = {
-  restaurant_id: number | null;
+  restaurant_id: string | null;
 };
 
 type Invoice = {
@@ -108,7 +108,7 @@ export function SuppliersClient({
     console.log("user", user.id);
 
     const { data: profiles, error: profileError } = await supabase
-      .from("user_profiles")
+      .from("users_profiles")
       .select("restaurant_id")
       .eq("auth_user_id", user.id)
       .limit(1);

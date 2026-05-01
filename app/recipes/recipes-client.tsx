@@ -43,7 +43,7 @@ type Recipe = {
 };
 
 type UserProfile = {
-  restaurant_id: number | null;
+  restaurant_id: string | null;
 };
 
 type RecipesClientProps = {
@@ -108,7 +108,7 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [restaurantId, setRestaurantId] = useState<number | null>(null);
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
 
   const getRestaurantId = useCallback(async () => {
     const supabase = getSupabaseBrowserClient();
@@ -129,7 +129,7 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
     }
 
     const { data: profiles, error: profileError } = await supabase
-      .from("user_profiles")
+      .from("users_profiles")
       .select("restaurant_id")
       .eq("auth_user_id", user.id)
       .limit(1);

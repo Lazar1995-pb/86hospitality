@@ -38,7 +38,7 @@ type CostCategory = {
 };
 
 type UserProfile = {
-  restaurant_id: number | null;
+  restaurant_id: string | null;
 };
 
 type Filters = {
@@ -49,7 +49,7 @@ type Filters = {
   toDate: string;
 };
 
-async function getMonthlySummary(restaurantId: number) {
+async function getMonthlySummary(restaurantId: string) {
   const supabase = getSupabaseClient();
 
   return supabase
@@ -59,7 +59,7 @@ async function getMonthlySummary(restaurantId: number) {
     .order("month", { ascending: false });
 }
 
-async function getCategorySummary(restaurantId: number) {
+async function getCategorySummary(restaurantId: string) {
   const supabase = getSupabaseClient();
 
   return supabase
@@ -79,7 +79,7 @@ async function getCategorySummary(restaurantId: number) {
     .eq("restaurant_id", restaurantId);
 }
 
-async function getSalesProfitReport(restaurantId: number) {
+async function getSalesProfitReport(restaurantId: string) {
   const supabase = getSupabaseClient();
 
   return supabase
@@ -98,7 +98,7 @@ async function getRestaurantId() {
   }
 
   const { data: profile, error: profileError } = await supabase
-    .from("user_profiles")
+    .from("users_profiles")
     .select("restaurant_id")
     .eq("auth_user_id", userData.user.id)
     .single();
@@ -111,7 +111,7 @@ async function getRestaurantId() {
   return (profile as UserProfile).restaurant_id;
 }
 
-async function getCostCategories(restaurantId: number) {
+async function getCostCategories(restaurantId: string) {
   const supabase = getSupabaseClient();
 
   return supabase

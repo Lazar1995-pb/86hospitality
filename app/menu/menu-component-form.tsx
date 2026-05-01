@@ -68,7 +68,7 @@ export function MenuComponentForm({
     }
 
     const { data: profile, error: profileError } = await supabase
-      .from("user_profiles")
+      .from("users_profiles")
       .select("restaurant_id")
       .eq("auth_user_id", user.id)
       .single();

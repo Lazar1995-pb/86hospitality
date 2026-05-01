@@ -1,15 +1,17 @@
 "use server";
 
 import { getSupabaseClient } from "@/lib/supabase";
+import { getCurrentUserRestaurantId } from "@/lib/current-restaurant";
 import { redirect } from "next/navigation";
 
 export async function createInventoryItem(formData: FormData) {
   const supabase = getSupabaseClient();
+  const restaurantId = await getCurrentUserRestaurantId();
   const name = String(formData.get("name") ?? "").trim();
   const { data: existingItem, error: duplicateCheckError } = await supabase
     .from("inventory_items")
     .select("id")
-    .eq("restaurant_id", 1)
+    .eq("restaurant_id", restaurantId)
     .ilike("name", name)
     .maybeSingle();
 
@@ -24,7 +26,7 @@ export async function createInventoryItem(formData: FormData) {
   }
 
   const { error } = await supabase.from("inventory_items").insert({
-    restaurant_id: 1,
+    restaurant_id: restaurantId,
     name,
     unit: String(formData.get("unit") ?? "").trim(),
     base_unit: String(formData.get("base_unit") ?? "").trim(),

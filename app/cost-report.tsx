@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase";
+import { getCurrentUserRestaurantId } from "@/lib/current-restaurant";
 
 type CostType = "bar" | "food";
 
@@ -80,7 +81,7 @@ function formatPercent(value: number | null) {
   return `${formatAmount(value)}%`;
 }
 
-async function getInvoiceCosts() {
+async function getInvoiceCosts(restaurantId: string) {
   const supabase = getSupabaseClient();
 
   return supabase
@@ -94,10 +95,10 @@ async function getInvoiceCosts() {
         )
       `,
     )
-    .eq("restaurant_id", 1);
+    .eq("restaurant_id", restaurantId);
 }
 
-async function getSalesWithMenuClassification() {
+async function getSalesWithMenuClassification(restaurantId: string) {
   const supabase = getSupabaseClient();
 
   const classifiedResult = await supabase
@@ -112,7 +113,7 @@ async function getSalesWithMenuClassification() {
         )
       `,
     )
-    .eq("restaurant_id", 1);
+    .eq("restaurant_id", restaurantId);
 
   if (!classifiedResult.error) {
     return classifiedResult;
@@ -121,7 +122,7 @@ async function getSalesWithMenuClassification() {
   return supabase
     .from("sales")
     .select("sale_date, revenue")
-    .eq("restaurant_id", 1);
+    .eq("restaurant_id", restaurantId);
 }
 
 export async function CostReportPage({
@@ -137,16 +138,28 @@ export async function CostReportPage({
   const params = await searchParams;
   const fromDate = params?.from_date ?? "";
   const toDate = params?.to_date ?? "";
+  const restaurantId = await getCurrentUserRestaurantId().catch(
+    (caughtError: Error) => {
+      console.error(caughtError);
+      return null;
+    },
+  );
   const { data: invoiceCostData, error: invoiceCostError } =
-    await getInvoiceCosts().catch((caughtError: Error) => ({
-      data: null,
-      error: caughtError,
-    }));
+    restaurantId
+      ? await getInvoiceCosts(restaurantId).catch((caughtError: Error) => ({
+          data: null,
+          error: caughtError,
+        }))
+      : { data: null, error: new Error("No restaurant profile found for this user.") };
   const { data: salesData, error: salesError } =
-    await getSalesWithMenuClassification().catch((caughtError: Error) => ({
-      data: null,
-      error: caughtError,
-    }));
+    restaurantId
+      ? await getSalesWithMenuClassification(restaurantId).catch(
+          (caughtError: Error) => ({
+            data: null,
+            error: caughtError,
+          }),
+        )
+      : { data: null, error: new Error("No restaurant profile found for this user.") };
 
   const invoiceCosts = ((invoiceCostData ?? []) as InvoiceCostRow[]).filter(
     (row) => {
