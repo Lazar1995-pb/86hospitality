@@ -2,7 +2,7 @@
 
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
-import { FormEvent } from "react";
+import type React from "react";
 import { useState } from "react";
 
 type InventoryItem = {
@@ -31,9 +31,9 @@ export function MenuComponentForm({
   semiProducts,
 }: MenuComponentFormProps) {
   const router = useRouter();
-  const [componentType, setComponentType] = useState<"inventory" | "recipe">(
-    "inventory",
-  );
+  const [componentType, setComponentType] = useState<
+    "inventory" | "semi-product"
+  >("inventory");
   const [componentId, setComponentId] = useState("");
   const [error, setError] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -51,9 +51,23 @@ export function MenuComponentForm({
       : (selectedComponent as SemiProduct | undefined)?.cost_per_unit;
   const lineCost = (Number(quantity) || 0) * (selectedUnitCost ?? 0);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+
+    const formData = new FormData(event.currentTarget);
+    const submittedComponentType = String(
+      formData.get("component_type") ?? "",
+    );
+    const componentId = String(formData.get("component_id") ?? "");
+    const nextComponentType =
+      submittedComponentType === "semi-product"
+        ? "semi-product"
+        : "inventory";
+    const inventoryItemId =
+      nextComponentType === "inventory" ? componentId : null;
+    const recipeId =
+      nextComponentType === "semi-product" ? componentId : null;
 
     const supabase = getSupabaseBrowserClient();
     const {
@@ -79,17 +93,26 @@ export function MenuComponentForm({
       return;
     }
 
+    const payload = {
+      restaurant_id: profile.restaurant_id,
+      menu_item_id: menuItemId,
+      component_type: nextComponentType,
+      inventory_item_id: inventoryItemId,
+      recipe_id: recipeId,
+      quantity: Number(formData.get("quantity")),
+      unit: String(formData.get("unit") ?? ""),
+    };
+
+    console.log({
+      component_type: payload.component_type,
+      inventory_item_id: payload.inventory_item_id,
+      payload,
+      recipe_id: payload.recipe_id,
+    });
+
     const { error: insertError } = await supabase
       .from("menu_item_components")
-      .insert({
-        restaurant_id: profile.restaurant_id,
-        menu_item_id: menuItemId,
-        inventory_item_id:
-          componentType === "inventory" ? Number(componentId) : null,
-        recipe_id: componentType === "recipe" ? Number(componentId) : null,
-        quantity: Number(quantity),
-        unit: selectedUnit ?? "",
-      });
+      .insert(payload);
 
     if (insertError) {
       console.error("Could not add menu component:", insertError);
@@ -115,13 +138,15 @@ export function MenuComponentForm({
         <select
           name="component_type"
           onChange={(event) => {
-            setComponentType(event.target.value as "inventory" | "recipe");
+            setComponentType(
+              event.target.value as "inventory" | "semi-product",
+            );
             setComponentId("");
           }}
           value={componentType}
         >
           <option value="inventory">Inventory item</option>
-          <option value="recipe">Semi-product</option>
+          <option value="semi-product">Semi-product</option>
         </select>
       </label>
 
@@ -158,6 +183,7 @@ export function MenuComponentForm({
       <div>
         <span className="label">Unit</span>
         <span>{selectedUnit ?? "-"}</span>
+        <input name="unit" type="hidden" value={selectedUnit ?? ""} />
       </div>
 
       <div>

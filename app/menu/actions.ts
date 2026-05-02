@@ -25,16 +25,27 @@ export async function createMenuItemComponent(formData: FormData) {
   const supabase = getSupabaseClient();
   const restaurantId = await getCurrentUserRestaurantId();
   const menuItemId = Number(formData.get("menu_item_id"));
-  const componentType = String(formData.get("component_type") ?? "");
+  const submittedComponentType = String(formData.get("component_type") ?? "");
+  const componentType =
+    submittedComponentType === "semi-product" ? "semi-product" : "inventory";
   const componentId = Number(formData.get("component_id"));
   const quantity = Number(formData.get("quantity"));
   const unit = String(formData.get("unit") ?? "").trim();
+  const inventoryItemId = componentType === "inventory" ? componentId : null;
+  const recipeId = componentType === "semi-product" ? componentId : null;
+
+  console.log({
+    component_type: componentType,
+    inventory_item_id: inventoryItemId,
+    recipe_id: recipeId,
+  });
 
   const { error } = await supabase.from("menu_item_components").insert({
     restaurant_id: restaurantId,
     menu_item_id: menuItemId,
-    inventory_item_id: componentType === "inventory" ? componentId : null,
-    recipe_id: componentType === "recipe" ? componentId : null,
+    component_type: componentType,
+    inventory_item_id: inventoryItemId,
+    recipe_id: recipeId,
     quantity,
     unit,
   });

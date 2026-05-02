@@ -76,7 +76,7 @@ type MenuClientProps = {
 
 type EditComponentRow = {
   componentId: string;
-  componentType: "inventory" | "recipe";
+  componentType: "inventory" | "semi-product";
   id: number;
   quantity: string;
   unit: string;
@@ -324,7 +324,7 @@ export function MenuClient({ saveError }: MenuClientProps) {
           : component.recipe_id
             ? String(component.recipe_id)
             : "",
-        componentType: component.inventory_item_id ? "inventory" : "recipe",
+        componentType: component.inventory_item_id ? "inventory" : "semi-product",
         id: component.id,
         quantity: component.quantity === null ? "" : String(component.quantity),
         unit: component.unit ?? "",
@@ -356,12 +356,15 @@ export function MenuClient({ saveError }: MenuClientProps) {
       .map((component) => ({
         inventory_item_id:
           component.componentType === "inventory"
-            ? Number(component.componentId)
+            ? component.componentId
             : null,
         menu_item_id: editingMenuItem.id,
         quantity: Number(component.quantity) || 0,
         recipe_id:
-          component.componentType === "recipe" ? Number(component.componentId) : null,
+          component.componentType === "semi-product"
+            ? component.componentId
+            : null,
+        component_type: component.componentType,
         unit: component.unit || getComponentUnit(component),
       }))
       .filter((component) => component.inventory_item_id || component.recipe_id);
@@ -642,14 +645,14 @@ export function MenuClient({ saveError }: MenuClientProps) {
                                     componentId: "",
                                     componentType: event.target.value as
                                       | "inventory"
-                                      | "recipe",
+                                      | "semi-product",
                                     unit: "",
                                   })
                                 }
                                 value={component.componentType}
                               >
                                 <option value="inventory">Inventory item</option>
-                                <option value="recipe">Semi-product</option>
+                                <option value="semi-product">Semi-product</option>
                               </select>
                             </label>
 
