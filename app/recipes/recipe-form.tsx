@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { createRecipe } from "./actions";
 
 type InventoryItem = {
-  id: number;
+  id: number | string;
   name: string | null;
   base_unit: string | null;
   base_unit_cost: number | null;

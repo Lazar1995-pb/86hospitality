@@ -10,7 +10,9 @@ export async function createRecipe(formData: FormData) {
   const yieldQuantity = Number(formData.get("yield_quantity"));
   const yieldUnit = String(formData.get("yield_unit") ?? "").trim();
   const costPerUnit = Number(formData.get("cost_per_unit"));
-  const inventoryItemIds = formData.getAll("inventory_item_id").map(Number);
+  const inventoryItemIds = formData
+    .getAll("inventory_item_id")
+    .map((inventoryItemId) => String(inventoryItemId));
   const quantities = formData.getAll("quantity").map(Number);
   const units = formData.getAll("unit").map(String);
 

@@ -6,15 +6,15 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { RecipeForm } from "./recipe-form";
 
 type InventoryItem = {
-  id: number;
+  id: number | string;
   name: string | null;
   base_unit: string | null;
   base_unit_cost: number | null;
 };
 
 type RecipeItem = {
-  id: number;
-  inventory_item_id: number | null;
+  id: number | string;
+  inventory_item_id: number | string | null;
   quantity: number | null;
   unit: string | null;
   inventory_items: RelatedInventoryItem;
@@ -22,17 +22,21 @@ type RecipeItem = {
 
 type RelatedInventoryItem =
   | {
+      id?: number | string | null;
       name: string | null;
+      base_unit?: string | null;
       base_unit_cost: number | null;
     }
   | {
+      id?: number | string | null;
       name: string | null;
+      base_unit?: string | null;
       base_unit_cost: number | null;
     }[]
   | null;
 
 type Recipe = {
-  id: number;
+  id: number | string;
   name: string | null;
   active: boolean | null;
   total_cost: number | null;
@@ -51,10 +55,19 @@ type RecipesClientProps = {
 };
 
 type EditIngredientRow = {
-  id: number;
+  id: number | string;
   inventoryItemId: string;
   quantity: string;
   unit: string;
+};
+
+type RecipeItemInsert = {
+  recipe_id: number | string;
+  inventory_item_id: string;
+  quantity: number;
+  unit: string;
+  waste_percent: number;
+  restaurant_id?: string;
 };
 
 function dedupeByName<T extends { name: string | null }>(items: T[]) {
@@ -188,7 +201,9 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
                 quantity,
                 unit,
                 inventory_items (
+                  id,
                   name,
+                  base_unit,
                   base_unit_cost
                 )
               )
@@ -244,7 +259,7 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
   }
 
   function updateEditingIngredient(
-    id: number,
+    id: number | string,
     changes: Partial<EditIngredientRow>,
   ) {
     setEditingIngredients((currentIngredients) =>
@@ -254,11 +269,73 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
     );
   }
 
-  function startEditingRecipe(recipe: Recipe) {
+  function mergeInventoryItemsFromRecipeItems(recipeItems: RecipeItem[]) {
+    setInventoryItems((currentItems) => {
+      const nextItems = [...currentItems];
+      const knownIds = new Set(currentItems.map((item) => String(item.id)));
+
+      recipeItems.forEach((recipeItem) => {
+        const inventoryItem = getRelatedInventoryItem(recipeItem.inventory_items);
+        const inventoryItemId = recipeItem.inventory_item_id;
+
+        if (
+          !inventoryItem ||
+          !inventoryItemId ||
+          knownIds.has(String(inventoryItemId))
+        ) {
+          return;
+        }
+
+        nextItems.push({
+          id: inventoryItem.id ?? inventoryItemId,
+          name: inventoryItem.name,
+          base_unit: inventoryItem.base_unit ?? recipeItem.unit,
+          base_unit_cost: inventoryItem.base_unit_cost,
+        });
+        knownIds.add(String(inventoryItemId));
+      });
+
+      return nextItems;
+    });
+  }
+
+  async function loadRecipeItemsForEdit(recipe: Recipe) {
+    const supabase = getSupabaseBrowserClient();
+    const { data, error } = await supabase
+      .from("recipe_items")
+      .select(
+        `
+          id,
+          inventory_item_id,
+          quantity,
+          unit,
+          inventory_items (
+            id,
+            name,
+            base_unit,
+            base_unit_cost
+          )
+        `,
+      )
+      .eq("recipe_id", recipe.id);
+
+    if (error) {
+      console.error("Could not load recipe ingredients for edit:", error);
+      setErrors([error.message]);
+      return recipe.recipe_items ?? [];
+    }
+
+    return (data ?? []) as RecipeItem[];
+  }
+
+  async function startEditingRecipe(recipe: Recipe) {
     setEditingRecipe(recipe);
     setEditingYieldQuantity(String(recipe.yield_quantity ?? ""));
+    setErrors([]);
+    const recipeItems = await loadRecipeItemsForEdit(recipe);
+    mergeInventoryItemsFromRecipeItems(recipeItems);
     setEditingIngredients(
-      (recipe.recipe_items ?? []).map((item) => ({
+      recipeItems.map((item) => ({
         id: item.id,
         inventoryItemId: item.inventory_item_id
           ? String(item.inventory_item_id)
@@ -270,8 +347,8 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
   }
 
   const editingTotalBatchCost = useMemo(
-    () =>
-      editingIngredients.reduce((sum, ingredient) => {
+    () => {
+      const calculatedCost = editingIngredients.reduce((sum, ingredient) => {
         const inventoryItem = getInventoryItem(ingredient.inventoryItemId);
 
         return (
@@ -279,8 +356,21 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
           (Number(ingredient.quantity) || 0) *
             (inventoryItem?.base_unit_cost ?? 0)
         );
-      }, 0),
-    [editingIngredients, inventoryItems],
+      }, 0);
+      const hasKnownIngredientCost = editingIngredients.some((ingredient) => {
+        const inventoryItem = getInventoryItem(ingredient.inventoryItemId);
+
+        return inventoryItem?.base_unit_cost !== null &&
+          inventoryItem?.base_unit_cost !== undefined;
+      });
+
+      if (editingIngredients.length > 0 && hasKnownIngredientCost) {
+        return calculatedCost;
+      }
+
+      return editingRecipe?.total_cost ?? calculatedCost;
+    },
+    [editingIngredients, editingRecipe?.total_cost, inventoryItems],
   );
   const editingCostPerUnit =
     Number(editingYieldQuantity) > 0
@@ -297,15 +387,31 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
     const yieldQuantity = Number(formData.get("yield_quantity"));
     const yieldUnit = String(formData.get("yield_unit") ?? "").trim();
     const active = formData.get("active") === "on";
+
+    const supabase = getSupabaseBrowserClient();
+    const nextRestaurantId = await getRestaurantId();
+
+    if (!nextRestaurantId) return;
+
     const validIngredients = editingIngredients
-      .map((ingredient) => ({
-        inventory_item_id: Number(ingredient.inventoryItemId),
-        quantity: Number(ingredient.quantity) || 0,
-        recipe_id: editingRecipe.id,
-        unit: ingredient.unit,
-        waste_percent: 0,
-      }))
-      .filter((ingredient) => ingredient.inventory_item_id);
+      .flatMap((ingredient): RecipeItemInsert[] => {
+        const inventoryItemId = ingredient.inventoryItemId.trim();
+        const quantity = Number(ingredient.quantity);
+        const inventoryItem = getInventoryItem(inventoryItemId);
+
+        if (!inventoryItemId || !Number.isFinite(quantity) || quantity <= 0) {
+          return [];
+        }
+
+        return [{
+          inventory_item_id: inventoryItemId,
+          quantity,
+          recipe_id: editingRecipe.id,
+          restaurant_id: nextRestaurantId,
+          unit: ingredient.unit || inventoryItem?.base_unit || "",
+          waste_percent: 0,
+        }];
+      });
 
     if (!name || !yieldQuantity || !yieldUnit || validIngredients.length === 0) {
       setErrors([
@@ -313,11 +419,6 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
       ]);
       return;
     }
-
-    const supabase = getSupabaseBrowserClient();
-    const nextRestaurantId = await getRestaurantId();
-
-    if (!nextRestaurantId) return;
 
     const { error: recipeError } = await supabase
       .from("recipes")
@@ -349,13 +450,54 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
       return;
     }
 
+    console.log("recipe_items insert payload:", validIngredients);
+
     const { error: insertItemsError } = await supabase
       .from("recipe_items")
       .insert(validIngredients);
 
     if (insertItemsError) {
-      console.error("Could not save recipe ingredients:", insertItemsError);
-      setErrors([insertItemsError.message]);
+      console.error(
+        "Could not save recipe ingredients:",
+        insertItemsError?.message,
+        insertItemsError,
+      );
+
+      const shouldRetryWithoutRestaurantId =
+        insertItemsError.message?.includes("restaurant_id") ||
+        insertItemsError.message?.includes("schema cache");
+
+      if (shouldRetryWithoutRestaurantId) {
+        const fallbackIngredients = validIngredients.map(
+          ({ restaurant_id: _restaurantId, ...ingredient }) => ingredient,
+        );
+
+        console.log("recipe_items insert payload:", fallbackIngredients);
+
+        const { error: fallbackInsertItemsError } = await supabase
+          .from("recipe_items")
+          .insert(fallbackIngredients);
+
+        if (!fallbackInsertItemsError) {
+          setEditingRecipe(null);
+          setEditingIngredients([]);
+          await loadRecipes();
+          return;
+        }
+
+        console.error(
+          "Could not save recipe ingredients:",
+          fallbackInsertItemsError?.message,
+          fallbackInsertItemsError,
+        );
+        setErrors([
+          fallbackInsertItemsError.message ||
+            "Could not save recipe ingredients.",
+        ]);
+        return;
+      }
+
+      setErrors([insertItemsError.message || "Could not save recipe ingredients."]);
       return;
     }
 
@@ -479,7 +621,7 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
                   <span className="value">
                     <button
                       className="button secondary"
-                      onClick={() => startEditingRecipe(recipe)}
+                      onClick={() => void startEditingRecipe(recipe)}
                       type="button"
                     >
                       Edit
