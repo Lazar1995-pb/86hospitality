@@ -2,37 +2,13 @@ import { getSupabaseClient } from "@/lib/supabase";
 import { getCurrentUserRestaurantId } from "@/lib/current-restaurant";
 import { SalesForm } from "./sales-form";
 
-type MenuItem = {
-  id: number;
-  name: string | null;
-  selling_price: number | null;
-};
-
 type Sale = {
   id: number;
+  category: string | null;
   sale_date: string | null;
-  quantity: number | null;
   revenue: number | null;
   note: string | null;
-  menu_items:
-    | {
-        name: string | null;
-      }
-    | {
-        name: string | null;
-      }[]
-    | null;
 };
-
-async function getMenuItems(restaurantId: string) {
-  const supabase = getSupabaseClient();
-
-  return supabase
-    .from("menu_items")
-    .select("id, name, selling_price")
-    .eq("restaurant_id", restaurantId)
-    .order("name", { ascending: true });
-}
 
 async function getSales(restaurantId: string) {
   const supabase = getSupabaseClient();
@@ -42,13 +18,10 @@ async function getSales(restaurantId: string) {
     .select(
       `
         id,
+        category,
         sale_date,
-        quantity,
         revenue,
-        note,
-        menu_items (
-          name
-        )
+        note
       `,
     )
     .eq("restaurant_id", restaurantId)
@@ -74,12 +47,11 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-function getMenuItemName(menuItem: Sale["menu_items"]): string | null {
-  if (Array.isArray(menuItem)) {
-    return menuItem[0]?.name ?? null;
-  }
+function formatCategory(value: string | null) {
+  if (value === "food") return "Food";
+  if (value === "beverage") return "Beverage";
 
-  return menuItem?.name ?? null;
+  return "-";
 }
 
 export const dynamic = "force-dynamic";
@@ -100,22 +72,12 @@ export default async function SalesPage({
       return null;
     },
   );
-  const {
-    data: menuItemData,
-    error: menuItemError,
-  } = restaurantId
-    ? await getMenuItems(restaurantId).catch((caughtError: Error) => ({
-        data: null,
-        error: caughtError,
-      }))
-    : { data: null, error: new Error("No restaurant profile found for this user.") };
   const { data: salesData, error: salesError } = restaurantId
     ? await getSales(restaurantId).catch((caughtError: Error) => ({
         data: null,
         error: caughtError,
       }))
     : { data: null, error: new Error("No restaurant profile found for this user.") };
-  const menuItems = (menuItemData ?? []) as MenuItem[];
   const fromDate = params?.from_date ?? "";
   const toDate = params?.to_date ?? "";
   const sales = ((salesData ?? []) as Sale[]).filter((sale) => {
@@ -139,13 +101,6 @@ export default async function SalesPage({
         </div>
       </div>
 
-      {menuItemError ? (
-        <div className="error-state">
-          <strong>Could not load menu items.</strong>
-          <p>{menuItemError.message}</p>
-        </div>
-      ) : null}
-
       {salesError ? (
         <div className="error-state">
           <strong>Could not load sales.</strong>
@@ -160,7 +115,7 @@ export default async function SalesPage({
         </div>
       ) : null}
 
-      <SalesForm menuItems={menuItems} />
+      <SalesForm />
 
       <form className="form-card kpi-filters">
         <label>
@@ -196,20 +151,18 @@ export default async function SalesPage({
           <thead>
             <tr>
               <th>Date</th>
+              <th>Category</th>
               <th className="number">Revenue</th>
               <th>Note</th>
-              <th>Menu item</th>
-              <th className="number">Quantity</th>
             </tr>
           </thead>
           <tbody>
             {sales.map((sale) => (
               <tr key={sale.id}>
                 <td>{formatDate(sale.sale_date)}</td>
+                <td>{formatCategory(sale.category)}</td>
                 <td className="number">{formatAmount(sale.revenue)}</td>
                 <td>{sale.note ?? "-"}</td>
-                <td>{getMenuItemName(sale.menu_items) ?? "Manual daily sale"}</td>
-                <td className="number">{formatAmount(sale.quantity)}</td>
               </tr>
             ))}
           </tbody>

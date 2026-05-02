@@ -34,6 +34,7 @@ export function NewInvoiceForm({
 }: NewInvoiceFormProps) {
   const [costCategoryId, setCostCategoryId] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
+  const [supplierId, setSupplierId] = useState("");
   const filteredSubcategories = costSubcategories.filter(
     (subcategory) => String(subcategory.cost_category_id) === costCategoryId,
   );
@@ -74,7 +75,13 @@ export function NewInvoiceForm({
 
       <label>
         Supplier
-        <select name="supplier_id" disabled={suppliers.length === 0}>
+        <select
+          name="supplier_id"
+          disabled={suppliers.length === 0}
+          onChange={(event) => setSupplierId(event.target.value)}
+          required
+          value={supplierId}
+        >
           <option value="">Select supplier</option>
           {suppliers.map((supplier) => (
             <option key={supplier.id} value={supplier.id}>

@@ -41,10 +41,7 @@ function formatDate(value: string | null) {
 }
 
 function getRedirectPath(department: Department) {
-  if (department === "bar") return "/bar/bar-employees";
-  if (department === "front") return "/employees?department=front";
-
-  return "/food/kitchen-employees";
+  return `/employees?department=${department}`;
 }
 
 export function EmployeeClient({
@@ -269,6 +266,23 @@ export function EmployeeClient({
           <p>{saveError}</p>
         </div>
       ) : null}
+
+      <form className="form-card kpi-filters">
+        <label>
+          Department
+          <select defaultValue={department} name="department">
+            {departmentOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <button className="button" type="submit">
+          Load employees
+        </button>
+      </form>
 
       {!isLoading ? (
         <form className="form-card inventory-form" onSubmit={handleCreateEmployee}>

@@ -12,11 +12,21 @@ export async function createSale(formData: FormData) {
   const quantityValue = String(formData.get("quantity") ?? "");
   const quantity = quantityValue ? Number(quantityValue) : null;
   const saleDate = String(formData.get("sale_date") ?? "");
+  const categoryValue = String(formData.get("category") ?? "");
+  const category =
+    categoryValue === "food" || categoryValue === "beverage"
+      ? categoryValue
+      : "";
   const note = String(formData.get("note") ?? "").trim();
   const revenue = Number(formData.get("revenue"));
 
+  if (!category) {
+    redirect(`/sales?error=${encodeURIComponent("Category is required.")}`);
+  }
+
   const { error } = await supabase.from("sales").insert({
     restaurant_id: restaurantId,
+    category,
     menu_item_id: menuItemId,
     quantity: menuItemId ? quantity : null,
     revenue,

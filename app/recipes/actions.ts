@@ -63,6 +63,7 @@ export async function createRecipe(formData: FormData) {
       quantity: quantities[index] || 0,
       unit: units[index] || "",
       waste_percent: 0,
+      restaurant_id: profile.restaurant_id,
     }))
     .filter((item) => item.inventory_item_id);
 

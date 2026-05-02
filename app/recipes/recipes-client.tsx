@@ -43,7 +43,7 @@ type Recipe = {
   yield_quantity: number | null;
   yield_unit: string | null;
   cost_per_unit: number | null;
-  recipe_items: RecipeItem[];
+  recipe_items?: RecipeItem[];
 };
 
 type UserProfile = {
@@ -120,6 +120,9 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
   const [errors, setErrors] = useState<string[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingRecipeItemsForId, setLoadingRecipeItemsForId] = useState<
+    number | string | null
+  >(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
 
@@ -194,19 +197,7 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
               total_cost,
               yield_quantity,
               yield_unit,
-              cost_per_unit,
-              recipe_items (
-                id,
-                inventory_item_id,
-                quantity,
-                unit,
-                inventory_items (
-                  id,
-                  name,
-                  base_unit,
-                  base_unit_cost
-                )
-              )
+              cost_per_unit
             `,
           )
           .eq("restaurant_id", nextRestaurantId)
@@ -299,7 +290,17 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
     });
   }
 
-  async function loadRecipeItemsForEdit(recipe: Recipe) {
+  function updateRecipeItems(recipeId: number | string, recipeItems: RecipeItem[]) {
+    setRecipes((currentRecipes) =>
+      currentRecipes.map((currentRecipe) =>
+        currentRecipe.id === recipeId
+          ? { ...currentRecipe, recipe_items: recipeItems }
+          : currentRecipe,
+      ),
+    );
+  }
+
+  async function loadRecipeItems(recipe: Recipe, nextRestaurantId: string) {
     const supabase = getSupabaseBrowserClient();
     const { data, error } = await supabase
       .from("recipe_items")
@@ -317,7 +318,9 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
           )
         `,
       )
-      .eq("recipe_id", recipe.id);
+      .eq("restaurant_id", nextRestaurantId)
+      .eq("recipe_id", recipe.id)
+      .order("id", { ascending: true });
 
     if (error) {
       console.error("Could not load recipe ingredients for edit:", error);
@@ -325,15 +328,24 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
       return recipe.recipe_items ?? [];
     }
 
-    return (data ?? []) as RecipeItem[];
+    const recipeItems = (data ?? []) as RecipeItem[];
+    mergeInventoryItemsFromRecipeItems(recipeItems);
+    updateRecipeItems(recipe.id, recipeItems);
+    return recipeItems;
   }
 
   async function startEditingRecipe(recipe: Recipe) {
     setEditingRecipe(recipe);
     setEditingYieldQuantity(String(recipe.yield_quantity ?? ""));
     setErrors([]);
-    const recipeItems = await loadRecipeItemsForEdit(recipe);
-    mergeInventoryItemsFromRecipeItems(recipeItems);
+    const nextRestaurantId = restaurantId ?? (await getRestaurantId());
+
+    if (!nextRestaurantId) return;
+
+    setRestaurantId(nextRestaurantId);
+    setLoadingRecipeItemsForId(recipe.id);
+    const recipeItems = await loadRecipeItems(recipe, nextRestaurantId);
+    setLoadingRecipeItemsForId(null);
     setEditingIngredients(
       recipeItems.map((item) => ({
         id: item.id,
@@ -442,7 +454,8 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
     const { error: deleteItemsError } = await supabase
       .from("recipe_items")
       .delete()
-      .eq("recipe_id", editingRecipe.id);
+      .eq("recipe_id", editingRecipe.id)
+      .eq("restaurant_id", nextRestaurantId);
 
     if (deleteItemsError) {
       console.error("Could not update recipe ingredients:", deleteItemsError);
@@ -462,48 +475,15 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
         insertItemsError?.message,
         insertItemsError,
       );
-
-      const shouldRetryWithoutRestaurantId =
-        insertItemsError.message?.includes("restaurant_id") ||
-        insertItemsError.message?.includes("schema cache");
-
-      if (shouldRetryWithoutRestaurantId) {
-        const fallbackIngredients = validIngredients.map(
-          ({ restaurant_id: _restaurantId, ...ingredient }) => ingredient,
-        );
-
-        console.log("recipe_items insert payload:", fallbackIngredients);
-
-        const { error: fallbackInsertItemsError } = await supabase
-          .from("recipe_items")
-          .insert(fallbackIngredients);
-
-        if (!fallbackInsertItemsError) {
-          setEditingRecipe(null);
-          setEditingIngredients([]);
-          await loadRecipes();
-          return;
-        }
-
-        console.error(
-          "Could not save recipe ingredients:",
-          fallbackInsertItemsError?.message,
-          fallbackInsertItemsError,
-        );
-        setErrors([
-          fallbackInsertItemsError.message ||
-            "Could not save recipe ingredients.",
-        ]);
-        return;
-      }
-
       setErrors([insertItemsError.message || "Could not save recipe ingredients."]);
       return;
     }
 
+    const refreshedItems = await loadRecipeItems(editingRecipe, nextRestaurantId);
     setEditingRecipe(null);
     setEditingIngredients([]);
-    await loadRecipes();
+    updateRecipeItems(editingRecipe.id, refreshedItems);
+    router.refresh();
   }
 
   async function handleDeleteRecipe(recipe: Recipe) {
@@ -521,7 +501,8 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
     const { error: deleteItemsError } = await supabase
       .from("recipe_items")
       .delete()
-      .eq("recipe_id", recipe.id);
+      .eq("recipe_id", recipe.id)
+      .eq("restaurant_id", nextRestaurantId);
 
     if (deleteItemsError) {
       console.error("Could not delete recipe ingredients:", deleteItemsError);
@@ -829,7 +810,9 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
                 </form>
               ) : null}
 
-              {(recipe.recipe_items ?? []).length > 0 ? (
+              {loadingRecipeItemsForId === recipe.id ? (
+                <p className="muted">Loading ingredients...</p>
+              ) : recipe.recipe_items && recipe.recipe_items.length > 0 ? (
                 <table className="items-table">
                   <thead>
                     <tr>
@@ -866,8 +849,10 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
                     })}
                   </tbody>
                 </table>
-              ) : (
+              ) : recipe.recipe_items ? (
                 <p className="muted">No ingredients for this recipe.</p>
+              ) : (
+                <p className="muted">Edit to load ingredients.</p>
               )}
             </section>
           );

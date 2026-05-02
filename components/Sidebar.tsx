@@ -29,30 +29,23 @@ const groups: SidebarGroup[] = [
     ],
   },
   {
+    links: [{ href: "/sales", label: "Sales" }],
+  },
+  {
     label: "Food",
     links: [
       { href: "/inventory", label: "Inventory" },
       { href: "/recipes", label: "Semi-products" },
       { href: "/menu", label: "Menu" },
-      { href: "/sales", label: "Sales" },
       { href: "/food/cost", label: "Food Cost" },
       { href: "/food/real-cost", label: "Real Food Cost" },
-      { href: "/employees?department=food", label: "Employees" },
-      { href: "/schedule?department=food", label: "Schedule" },
     ],
   },
   {
-    label: "Bar",
+    label: "Department",
     links: [
-      { href: "/employees?department=bar", label: "Employees" },
-      { href: "/schedule?department=bar", label: "Schedule" },
-    ],
-  },
-  {
-    label: "Front",
-    links: [
-      { href: "/employees?department=front", label: "Employees" },
-      { href: "/schedule?department=front", label: "Schedule" },
+      { href: "/employees", label: "Employees" },
+      { href: "/schedule", label: "Schedule" },
     ],
   },
   {
@@ -140,8 +133,8 @@ export function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-title">MVP</div>
       <nav className="sidebar-nav">
-        {groups.map((group) => {
-          const groupKey = group.label ?? "main";
+        {groups.map((group, index) => {
+          const groupKey = group.label ?? `main-${index}`;
           const isStandalone = !group.label;
           const isGroupOpen = isStandalone || openGroups[groupKey];
 

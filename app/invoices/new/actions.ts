@@ -5,7 +5,9 @@ import { getCurrentUserRestaurantId } from "@/lib/current-restaurant";
 import { redirect } from "next/navigation";
 
 export async function createInvoice(formData: FormData) {
-  const supplierId = Number(formData.get("supplier_id"));
+  console.log("supplier_id from form:", formData.get("supplier_id"));
+
+  const supplierId = String(formData.get("supplier_id") ?? "");
   const invoiceNumber = String(formData.get("invoice_number") ?? "").trim();
   const invoiceDate = String(formData.get("invoice_date") ?? "");
   const total = Number(formData.get("total"));
@@ -36,6 +38,8 @@ export async function createInvoice(formData: FormData) {
       `/invoices/new?error=${encodeURIComponent("No restaurant profile found")}`,
     );
   }
+
+  console.log("supplierId before insert:", supplierId);
 
   const { data: invoice, error: invoiceError } = await supabase
     .from("invoices")

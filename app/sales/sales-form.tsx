@@ -3,18 +3,8 @@
 import { useState } from "react";
 import { createSale } from "./actions";
 
-type MenuItem = {
-  id: number;
-  name: string | null;
-  selling_price: number | null;
-};
-
-type SalesFormProps = {
-  menuItems: MenuItem[];
-};
-
-export function SalesForm({ menuItems }: SalesFormProps) {
-  const [menuItemId, setMenuItemId] = useState("");
+export function SalesForm() {
+  const [category, setCategory] = useState("food");
 
   return (
     <form action={createSale} className="form-card inventory-form">
@@ -24,26 +14,16 @@ export function SalesForm({ menuItems }: SalesFormProps) {
       </label>
 
       <label>
-        Menu item
+        Category
         <select
-          disabled={menuItems.length === 0}
-          name="menu_item_id"
-          onChange={(event) => setMenuItemId(event.target.value)}
-          value={menuItemId}
+          name="category"
+          onChange={(event) => setCategory(event.target.value)}
+          required
+          value={category}
         >
-          <option value="">Select menu item</option>
-          {menuItems.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name ?? `Menu item ${item.id}`}
-            </option>
-          ))}
+          <option value="food">food</option>
+          <option value="beverage">beverage</option>
         </select>
-        <span className="field-help">Menu item optional</span>
-      </label>
-
-      <label>
-        Quantity
-        <input min="0" name="quantity" step="0.01" type="number" />
       </label>
 
       <label>
