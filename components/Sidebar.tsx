@@ -23,8 +23,16 @@ type SidebarUser = {
 };
 
 type SidebarProfile = {
-  full_name: string | null;
+  auth_user_id: string | null;
+  created_at: string | null;
+  id: number | string;
   restaurant_id: string | null;
+  user_id: string | null;
+};
+
+type Restaurant = {
+  id?: string | null;
+  name: string | null;
 };
 
 const groups: SidebarGroup[] = [
@@ -102,7 +110,8 @@ function getOpenGroupsForPath(currentHref: string, pathname: string) {
 }
 
 function getInitials(name: string) {
-  const words = name.trim().split(/\s+/).filter(Boolean);
+  const displayName = name.includes("@") ? name.split("@")[0] : name;
+  const words = displayName.trim().split(/[\s._-]+/).filter(Boolean);
 
   if (words.length === 0) return "U";
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
@@ -139,8 +148,13 @@ export function Sidebar() {
     const supabase = getSupabaseBrowserClient();
 
     async function loadSidebarUser(session: Session | null) {
-      const user = session?.user;
-      const fallbackUserName = user?.email ?? "User";
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const user = userData.user ?? session?.user ?? null;
+      const userEmail = user?.email ?? "User";
+
+      if (userError) {
+        console.error("Could not load sidebar auth user:", userError.message);
+      }
 
       if (!user) {
         setSidebarUser({
@@ -151,48 +165,25 @@ export function Sidebar() {
         return;
       }
 
-      let profile: SidebarProfile | null = null;
-
-      const { data: authProfile, error: authProfileError } = await supabase
+      const { data: profiles, error: profileError } = await supabase
         .from("users_profiles")
-        .select("full_name, restaurant_id")
+        .select("id, user_id, restaurant_id, created_at, auth_user_id")
         .eq("auth_user_id", user.id)
-        .maybeSingle();
+        .limit(1);
 
-      if (!authProfileError && authProfile) {
-        profile = authProfile as SidebarProfile;
-      } else {
-        const { data: userProfile, error: userProfileError } = await supabase
-          .from("users_profiles")
-          .select("full_name, restaurant_id")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (!userProfileError && userProfile) {
-          profile = userProfile as SidebarProfile;
-        } else if (authProfileError || userProfileError) {
-          console.error(
-            "Could not load sidebar user profile:",
-            authProfileError?.message ?? "No auth_user_id profile found",
-          );
-          console.error(
-            "Could not load sidebar user profile by user_id:",
-            userProfileError?.message ?? "No user_id profile found",
-          );
-        }
+      if (profileError) {
+        console.error("Could not load sidebar user profile:", profileError.message);
       }
 
-      const userName =
-        typeof profile?.full_name === "string" && profile.full_name.trim()
-          ? profile.full_name
-          : fallbackUserName;
+      const profile = (profiles?.[0] ?? null) as SidebarProfile | null;
       let restaurantName = "No restaurant";
 
       if (profile?.restaurant_id) {
+        const restaurantId = profile.restaurant_id.trim();
         const { data: restaurant, error: restaurantError } = await supabase
           .from("restaurants")
-          .select("name")
-          .eq("id", profile.restaurant_id)
+          .select("id, name")
+          .eq("id", restaurantId)
           .maybeSingle();
 
         if (restaurantError) {
@@ -205,12 +196,14 @@ export function Sidebar() {
         if (typeof restaurant?.name === "string" && restaurant.name.trim()) {
           restaurantName = restaurant.name;
         }
+      } else if (!profileError) {
+        console.error("Could not load sidebar user profile: No profile found.");
       }
 
       setSidebarUser({
-        initials: getInitials(userName),
+        initials: getInitials(userEmail),
         restaurantName,
-        userName,
+        userName: userEmail,
       });
     }
 
