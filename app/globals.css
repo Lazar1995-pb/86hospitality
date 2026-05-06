@@ -88,6 +88,8 @@ p {
   background: var(--card);
   box-shadow: var(--shadow-soft);
   color: var(--text);
+  display: flex;
+  flex-direction: column;
   flex: 0 0 224px;
   min-height: 100vh;
   padding: 24px 14px;
@@ -105,7 +107,9 @@ p {
 
 .sidebar-nav {
   display: grid;
+  flex: 1;
   gap: 8px;
+  align-content: start;
 }
 
 .sidebar-group {
@@ -140,6 +144,12 @@ p {
   text-decoration: none;
 }
 
+.sidebar-main-link {
+  color: var(--text);
+  font-weight: 700;
+  padding-left: 10px;
+}
+
 .sidebar-link:hover {
   background: var(--background);
   color: var(--text);
@@ -154,11 +164,6 @@ p {
 .sidebar-logout {
   background: transparent;
   border: 0;
-  border-radius: 8px;
-  color: var(--muted);
-  font-weight: 600;
-  margin-top: 24px;
-  padding: 10px;
   text-align: left;
   width: 100%;
 }
@@ -166,6 +171,42 @@ p {
 .sidebar-logout:hover {
   background: var(--background);
   color: var(--text);
+}
+
+.sidebar-footer {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 24px;
+  padding: 18px 10px 0;
+}
+
+.sidebar-restaurant {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sidebar-user-name {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.sidebar-avatar {
+  align-items: center;
+  background: var(--background);
+  border-radius: 999px;
+  color: var(--primary);
+  display: flex;
+  flex: 0 0 34px;
+  font-size: 12px;
+  font-weight: 750;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
 }
 
 .page-header {
@@ -505,6 +546,60 @@ p {
   margin-bottom: 16px;
 }
 
+.employee-document-form {
+  background: var(--background);
+  border-radius: 12px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 16px;
+}
+
+.employee-document-form label {
+  color: var(--text);
+  display: grid;
+  font-weight: 650;
+  gap: 8px;
+}
+
+.employee-document-form input,
+.employee-document-form select {
+  background: var(--card);
+  border: 1px solid var(--background);
+  border-radius: 8px;
+  color: var(--text);
+  min-height: 42px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.employee-document-form .button {
+  align-self: end;
+}
+
+.document-status {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 750;
+  padding: 4px 8px;
+}
+
+.document-status.expired {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.document-status.warning {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.document-status.valid {
+  background: var(--background);
+  color: var(--primary);
+}
+
 .employee-edit-form .checkbox-label {
   align-items: center;
   display: flex;
@@ -551,7 +646,8 @@ p {
   .menu-component-row,
   .budget-line-row,
   .component-form,
-  .employee-edit-form {
+  .employee-edit-form,
+  .employee-document-form {
     grid-template-columns: 1fr;
   }
 

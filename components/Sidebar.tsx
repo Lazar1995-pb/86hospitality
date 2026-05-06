@@ -16,6 +16,17 @@ type SidebarGroup = {
   links: SidebarLink[];
 };
 
+type SidebarUser = {
+  initials: string;
+  restaurantName: string;
+  userName: string;
+};
+
+type SidebarProfile = {
+  full_name: string | null;
+  restaurant_id: string | null;
+};
+
 const groups: SidebarGroup[] = [
   {
     links: [{ href: "/", label: "Dashboard" }],
@@ -39,6 +50,16 @@ const groups: SidebarGroup[] = [
       { href: "/menu", label: "Menu" },
       { href: "/food/cost", label: "Food Cost" },
       { href: "/food/real-cost", label: "Real Food Cost" },
+    ],
+  },
+  {
+    label: "Beverage",
+    links: [
+      { href: "/bar/inventory", label: "Inventory" },
+      { href: "/recipes?department=beverage", label: "Semi-products" },
+      { href: "/bar/menu", label: "Menu" },
+      { href: "/bar/cost", label: "Beverage Cost" },
+      { href: "/bar/real-cost", label: "Real Beverage Cost" },
     ],
   },
   {
@@ -80,6 +101,15 @@ function getOpenGroupsForPath(currentHref: string, pathname: string) {
   }, {});
 }
 
+function getInitials(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+
+  if (words.length === 0) return "U";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+
+  return `${words[0][0]}${words[1][0]}`.toUpperCase();
+}
+
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -90,6 +120,11 @@ export function Sidebar() {
     getOpenGroupsForPath(currentHref, pathname)
   );
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [sidebarUser, setSidebarUser] = useState<SidebarUser>({
+    initials: "U",
+    restaurantName: "No restaurant",
+    userName: "User",
+  });
 
   useEffect(() => {
     const activeGroups = getOpenGroupsForPath(currentHref, pathname);
@@ -103,9 +138,88 @@ export function Sidebar() {
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
 
+    async function loadSidebarUser(session: Session | null) {
+      const user = session?.user;
+      const fallbackUserName = user?.email ?? "User";
+
+      if (!user) {
+        setSidebarUser({
+          initials: "U",
+          restaurantName: "No restaurant",
+          userName: "User",
+        });
+        return;
+      }
+
+      let profile: SidebarProfile | null = null;
+
+      const { data: authProfile, error: authProfileError } = await supabase
+        .from("users_profiles")
+        .select("full_name, restaurant_id")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
+
+      if (!authProfileError && authProfile) {
+        profile = authProfile as SidebarProfile;
+      } else {
+        const { data: userProfile, error: userProfileError } = await supabase
+          .from("users_profiles")
+          .select("full_name, restaurant_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (!userProfileError && userProfile) {
+          profile = userProfile as SidebarProfile;
+        } else if (authProfileError || userProfileError) {
+          console.error(
+            "Could not load sidebar user profile:",
+            authProfileError?.message ?? "No auth_user_id profile found",
+          );
+          console.error(
+            "Could not load sidebar user profile by user_id:",
+            userProfileError?.message ?? "No user_id profile found",
+          );
+        }
+      }
+
+      const userName =
+        typeof profile?.full_name === "string" && profile.full_name.trim()
+          ? profile.full_name
+          : fallbackUserName;
+      let restaurantName = "No restaurant";
+
+      if (profile?.restaurant_id) {
+        const { data: restaurant, error: restaurantError } = await supabase
+          .from("restaurants")
+          .select("name")
+          .eq("id", profile.restaurant_id)
+          .maybeSingle();
+
+        if (restaurantError) {
+          console.error(
+            "Could not load sidebar restaurant:",
+            restaurantError.message,
+          );
+        }
+
+        if (typeof restaurant?.name === "string" && restaurant.name.trim()) {
+          restaurantName = restaurant.name;
+        }
+      }
+
+      setSidebarUser({
+        initials: getInitials(userName),
+        restaurantName,
+        userName,
+      });
+    }
+
     async function loadSession() {
       const result = await supabase.auth.getSession();
-      setIsLoggedIn(Boolean(result.data.session));
+      const session = result.data.session;
+
+      setIsLoggedIn(Boolean(session));
+      await loadSidebarUser(session);
     }
 
     loadSession();
@@ -113,6 +227,7 @@ export function Sidebar() {
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event: AuthChangeEvent, session: Session | null) => {
         setIsLoggedIn(Boolean(session));
+        void loadSidebarUser(session);
       },
     );
 
@@ -167,7 +282,13 @@ export function Sidebar() {
                     return (
                       <Link
                         className={
-                          isActive ? "sidebar-link active" : "sidebar-link"
+                          isStandalone && isActive
+                            ? "sidebar-link sidebar-main-link active"
+                            : isStandalone
+                              ? "sidebar-link sidebar-main-link"
+                              : isActive
+                                ? "sidebar-link active"
+                                : "sidebar-link"
                         }
                         href={link.href}
                         key={link.href}
@@ -179,12 +300,25 @@ export function Sidebar() {
             </div>
           );
         })}
+        {isLoggedIn ? (
+          <button
+            className="sidebar-link sidebar-main-link sidebar-logout"
+            onClick={handleLogout}
+            type="button"
+          >
+            Logout
+          </button>
+        ) : null}
       </nav>
-      {isLoggedIn ? (
-        <button className="sidebar-logout" onClick={handleLogout} type="button">
-          Logout
-        </button>
-      ) : null}
+      <div className="sidebar-footer">
+        <div>
+          <div className="sidebar-restaurant">{sidebarUser.restaurantName}</div>
+          <div className="sidebar-user-name">{sidebarUser.userName}</div>
+        </div>
+        <div className="sidebar-avatar" aria-hidden="true">
+          {sidebarUser.initials}
+        </div>
+      </div>
     </aside>
   );
 }
