@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { recipeSubcategories } from "@/lib/recipe-subcategories";
 import { createRecipe } from "./actions";
 
 type InventoryItem = {
@@ -66,6 +67,27 @@ export function RecipeForm({ inventoryItems }: RecipeFormProps) {
       <label>
         Semi-product name
         <input name="name" required type="text" />
+      </label>
+
+      <label>
+        Subcategory
+        <select defaultValue="" name="subcategory">
+          <option value="">Select subcategory</option>
+          {recipeSubcategories.map((subcategory) => (
+            <option key={subcategory} value={subcategory}>
+              {subcategory}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label>
+        Description / note
+        <textarea
+          name="description"
+          placeholder="Example: marinade for beef, prepare 24h before use..."
+          rows={3}
+        />
       </label>
 
       <label>

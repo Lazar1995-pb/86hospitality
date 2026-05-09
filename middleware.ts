@@ -1,9 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { canAccessModule, getModuleForPath } from "./lib/permissions";
 
 const protectedPrefixes = [
   "/bar",
   "/budget",
+  "/department",
   "/employees",
   "/food",
   "/inventory",
@@ -13,10 +15,13 @@ const protectedPrefixes = [
   "/recipes",
   "/sales",
   "/schedule",
+  "/settings",
   "/suppliers",
 ];
 
 function isProtectedPath(pathname: string) {
+  if (pathname === "/") return true;
+
   return protectedPrefixes.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
@@ -69,6 +74,31 @@ export async function middleware(request: NextRequest) {
     );
 
     return NextResponse.redirect(redirectUrl);
+  }
+
+  if (user && isProtectedPath(pathname)) {
+    const module = getModuleForPath(pathname);
+
+    if (module) {
+      const { data: profiles, error: profileError } = await supabase
+        .from("users_profiles")
+        .select("*")
+        .eq("auth_user_id", user.id)
+        .limit(1);
+      const profile = (profiles?.[0] ?? null) as { role?: string | null } | null;
+
+      if (profileError) {
+        console.error("Could not load profile for permissions:", profileError.message);
+      }
+
+      if (!canAccessModule(profile?.role, module)) {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = "/access-denied";
+        redirectUrl.searchParams.set("module", module);
+
+        return NextResponse.redirect(redirectUrl);
+      }
+    }
   }
 
   if (user && pathname === "/login") {

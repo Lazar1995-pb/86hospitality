@@ -5,7 +5,9 @@ import { redirect } from "next/navigation";
 
 export async function createRecipe(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
   const active = formData.get("active") === "on";
+  const subcategory = String(formData.get("subcategory") ?? "").trim();
   const totalCost = Number(formData.get("total_cost"));
   const yieldQuantity = Number(formData.get("yield_quantity"));
   const yieldUnit = String(formData.get("yield_unit") ?? "").trim();
@@ -36,7 +38,9 @@ export async function createRecipe(formData: FormData) {
 
   const recipePayload = {
     name,
+    description: description || null,
     active,
+    subcategory: subcategory || null,
     total_cost: totalCost,
     yield_quantity: yieldQuantity,
     yield_unit: yieldUnit,

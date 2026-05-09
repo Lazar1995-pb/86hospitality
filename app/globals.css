@@ -30,7 +30,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -392,6 +393,7 @@ p {
 
 .form-card input,
 .form-card select,
+.form-card textarea,
 .component-form input,
 .component-form select,
 .employee-edit-form input,
@@ -408,6 +410,7 @@ p {
 
 .form-card input:focus,
 .form-card select:focus,
+.form-card textarea:focus,
 .component-form input:focus,
 .component-form select:focus,
 .employee-edit-form input:focus,
@@ -474,6 +477,303 @@ p {
 
 .dashboard-section + .dashboard-section {
   margin-top: 24px;
+}
+
+.dashboard-page {
+  display: grid;
+  gap: 24px;
+}
+
+.dashboard-page-header {
+  align-items: center;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.dashboard-soft-error {
+  background: #fff7ed;
+  border-radius: 999px;
+  color: #c2410c;
+  font-size: 12px;
+  font-weight: 650;
+  padding: 6px 10px;
+}
+
+.dashboard-control-bar {
+  align-items: end;
+  background: var(--card);
+  border-radius: 16px;
+  box-shadow: var(--shadow-soft);
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(180px, 240px) 1fr minmax(150px, 180px);
+  padding: 18px;
+}
+
+.dashboard-control-bar label {
+  color: var(--text);
+  display: grid;
+  font-weight: 650;
+  gap: 8px;
+}
+
+.dashboard-control-bar input,
+.dashboard-control-bar select {
+  background: var(--background);
+  border: 1px solid var(--background);
+  border-radius: 8px;
+  color: var(--text);
+  min-height: 42px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.dashboard-control-bar input:focus,
+.dashboard-control-bar select:focus {
+  border-color: var(--primary);
+  outline: 0;
+}
+
+.dashboard-custom-range {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboard-currency-badge {
+  align-self: end;
+  background: var(--background);
+  border-radius: 999px;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 700;
+  grid-column: -2;
+  justify-self: end;
+  min-height: 42px;
+  padding: 11px 14px;
+  white-space: nowrap;
+}
+
+.dashboard-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.kpi-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.dashboard-two-column {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.department-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-card,
+.dashboard-kpi-card,
+.department-summary-card {
+  background: var(--card);
+  border-radius: 16px;
+  box-shadow: var(--shadow-soft);
+}
+
+.dashboard-card {
+  padding: 24px;
+}
+
+.dashboard-kpi-card {
+  display: grid;
+  gap: 10px;
+  padding: 20px;
+  transition:
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.dashboard-kpi-card:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+
+.dashboard-kpi-card p {
+  font-size: 13px;
+}
+
+.dashboard-kpi-heading {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 13px;
+  font-weight: 650;
+  justify-content: space-between;
+}
+
+.dashboard-kpi-icon {
+  align-items: center;
+  background: var(--background);
+  border-radius: 999px;
+  color: var(--primary);
+  display: inline-flex;
+  font-weight: 750;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.dashboard-kpi-value {
+  color: var(--text);
+  font-size: 28px;
+  font-weight: 780;
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+
+.dashboard-chart-card {
+  min-height: 260px;
+}
+
+.dashboard-chart-list,
+.activity-feed,
+.alert-list {
+  display: grid;
+  gap: 14px;
+}
+
+.dashboard-chart-row {
+  display: grid;
+  gap: 8px;
+}
+
+.dashboard-chart-meta,
+.activity-item {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.dashboard-chart-meta span,
+.activity-item span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.dashboard-chart-track {
+  background: var(--background);
+  border-radius: 999px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.dashboard-chart-bar {
+  background: var(--primary);
+  border-radius: inherit;
+  height: 100%;
+}
+
+.cost-overview-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.quick-actions-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.quick-action-link {
+  background: var(--background);
+  border-radius: 10px;
+  color: var(--text);
+  font-weight: 700;
+  padding: 14px;
+  text-decoration: none;
+}
+
+.quick-action-link:hover {
+  color: var(--primary);
+}
+
+.activity-item {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.activity-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.activity-item strong {
+  display: block;
+}
+
+.department-summary-card {
+  padding: 20px;
+}
+
+.department-summary-card h3 {
+  margin-bottom: 16px;
+}
+
+.department-summary-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.department-summary-grid strong {
+  color: var(--text);
+  display: block;
+  font-size: 20px;
+}
+
+.alert-item {
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.alert-item p {
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.alert-item.neutral {
+  background: var(--background);
+}
+
+.alert-item.warning {
+  background: #ffedd5;
+}
+
+.alert-item.danger {
+  background: #fee2e2;
+}
+
+.dashboard-skeleton {
+  animation: dashboard-pulse 1.4s ease-in-out infinite;
+  background: linear-gradient(90deg, #ffffff 0%, #eef2f7 50%, #ffffff 100%);
+  border-radius: 16px;
+  height: 142px;
+}
+
+@keyframes dashboard-pulse {
+  0% {
+    opacity: 0.65;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.65;
+  }
 }
 
 .kpi-filters {
@@ -580,6 +880,12 @@ p {
   align-self: end;
 }
 
+.labor-entry-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .document-status {
   border-radius: 999px;
   display: inline-flex;
@@ -645,16 +951,31 @@ p {
     flex-direction: column;
   }
 
+  .dashboard-page-header,
+  .dashboard-chart-meta,
+  .activity-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .invoice-summary,
   .summary-grid,
   .kpi-filters,
+  .dashboard-control-bar,
+  .dashboard-custom-range,
+  .kpi-grid,
+  .dashboard-two-column,
+  .department-grid,
+  .cost-overview-grid,
+  .quick-actions-grid,
   .item-row,
   .recipe-item-row,
   .menu-component-row,
   .budget-line-row,
   .component-form,
   .employee-edit-form,
-  .employee-document-form {
+  .employee-document-form,
+  .labor-entry-grid {
     grid-template-columns: 1fr;
   }
 

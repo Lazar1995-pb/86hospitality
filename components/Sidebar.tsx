@@ -1,6 +1,7 @@
 "use client";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { type AppModule, canAccessModule } from "@/lib/permissions";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -9,6 +10,7 @@ import { useEffect, useState } from "react";
 type SidebarLink = {
   href: string;
   label: string;
+  module: AppModule;
 };
 
 type SidebarGroup = {
@@ -27,6 +29,7 @@ type SidebarProfile = {
   created_at: string | null;
   id: number | string;
   restaurant_id: string | null;
+  role?: string | null;
   user_id: string | null;
 };
 
@@ -37,52 +40,56 @@ type Restaurant = {
 
 const groups: SidebarGroup[] = [
   {
-    links: [{ href: "/", label: "Dashboard" }],
+    links: [{ href: "/", label: "Dashboard", module: "dashboard" }],
   },
   {
     label: "Invoices",
     links: [
-      { href: "/invoices", label: "Invoice list" },
-      { href: "/invoices/new", label: "New invoice" },
-      { href: "/suppliers", label: "Suppliers" },
+      { href: "/invoices", label: "Invoice list", module: "invoices" },
+      { href: "/invoices/new", label: "New invoice", module: "invoices" },
+      { href: "/suppliers", label: "Suppliers", module: "invoices" },
     ],
   },
   {
-    links: [{ href: "/sales", label: "Sales" }],
+    links: [{ href: "/sales", label: "Sales", module: "sales" }],
   },
   {
     label: "Food",
     links: [
-      { href: "/inventory", label: "Inventory" },
-      { href: "/recipes", label: "Semi-products" },
-      { href: "/menu", label: "Menu" },
-      { href: "/food/cost", label: "Food Cost" },
-      { href: "/food/real-cost", label: "Real Food Cost" },
+      { href: "/inventory", label: "Inventory", module: "inventory" },
+      { href: "/recipes", label: "Semi-products", module: "recipes" },
+      { href: "/menu", label: "Menu", module: "menu" },
+      { href: "/food/cost", label: "Food Cost", module: "food_cost" },
+      { href: "/food/real-cost", label: "Real Food Cost", module: "food_cost" },
     ],
   },
   {
     label: "Beverage",
     links: [
-      { href: "/bar/inventory", label: "Inventory" },
-      { href: "/recipes?department=beverage", label: "Semi-products" },
-      { href: "/bar/menu", label: "Menu" },
-      { href: "/bar/cost", label: "Beverage Cost" },
-      { href: "/bar/real-cost", label: "Real Beverage Cost" },
+      { href: "/bar/inventory", label: "Inventory", module: "bar_inventory" },
+      { href: "/recipes?department=beverage", label: "Semi-products", module: "beverage" },
+      { href: "/bar/menu", label: "Menu", module: "beverage" },
+      { href: "/bar/cost", label: "Beverage Cost", module: "bar_cost" },
+      { href: "/bar/real-cost", label: "Real Beverage Cost", module: "bar_cost" },
     ],
   },
   {
     label: "Department",
     links: [
-      { href: "/employees", label: "Employees" },
-      { href: "/schedule", label: "Schedule" },
+      { href: "/employees", label: "Employees", module: "employees" },
+      { href: "/schedule", label: "Schedule", module: "schedule" },
+      { href: "/department/labor-cost", label: "Labor Cost", module: "department_labor" },
     ],
   },
   {
     label: "KPI",
     links: [
-      { href: "/kpi", label: "Dashboard" },
-      { href: "/budget", label: "Budget" },
+      { href: "/kpi", label: "Dashboard", module: "kpi" },
+      { href: "/budget", label: "Budget", module: "budget" },
     ],
+  },
+  {
+    links: [{ href: "/settings/restaurant", label: "Settings", module: "settings" }],
   },
 ];
 
@@ -129,6 +136,7 @@ export function Sidebar() {
     getOpenGroupsForPath(currentHref, pathname)
   );
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
   const [sidebarUser, setSidebarUser] = useState<SidebarUser>({
     initials: "U",
     restaurantName: "No restaurant",
@@ -162,12 +170,13 @@ export function Sidebar() {
           restaurantName: "No restaurant",
           userName: "User",
         });
+        setRole(null);
         return;
       }
 
       const { data: profiles, error: profileError } = await supabase
         .from("users_profiles")
-        .select("id, user_id, restaurant_id, created_at, auth_user_id")
+        .select("*")
         .eq("auth_user_id", user.id)
         .limit(1);
 
@@ -176,6 +185,7 @@ export function Sidebar() {
       }
 
       const profile = (profiles?.[0] ?? null) as SidebarProfile | null;
+      setRole(profile?.role ?? null);
       let restaurantName = "No restaurant";
 
       if (profile?.restaurant_id) {
@@ -237,11 +247,18 @@ export function Sidebar() {
     router.refresh();
   }
 
+  const visibleGroups = groups
+    .map((group) => ({
+      ...group,
+      links: group.links.filter((link) => canAccessModule(role, link.module)),
+    }))
+    .filter((group) => group.links.length > 0);
+
   return (
     <aside className="sidebar">
       <div className="sidebar-title">MVP</div>
       <nav className="sidebar-nav">
-        {groups.map((group, index) => {
+        {visibleGroups.map((group, index) => {
           const groupKey = group.label ?? `main-${index}`;
           const isStandalone = !group.label;
           const isGroupOpen = isStandalone || openGroups[groupKey];

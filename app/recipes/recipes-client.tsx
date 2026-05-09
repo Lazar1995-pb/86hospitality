@@ -1,6 +1,7 @@
 "use client";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { recipeSubcategories } from "@/lib/recipe-subcategories";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { RecipeForm } from "./recipe-form";
@@ -39,6 +40,8 @@ type Recipe = {
   id: number | string;
   name: string | null;
   active: boolean | null;
+  subcategory: string | null;
+  description: string | null;
   total_cost: number | null;
   yield_quantity: number | null;
   yield_unit: string | null;
@@ -123,6 +126,7 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
   const [loadingRecipeItemsForId, setLoadingRecipeItemsForId] = useState<
     number | string | null
   >(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState("all");
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
 
@@ -193,11 +197,25 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
             `
               id,
               name,
+              subcategory,
+              description,
               active,
               total_cost,
               yield_quantity,
               yield_unit,
-              cost_per_unit
+              cost_per_unit,
+              recipe_items (
+                id,
+                inventory_item_id,
+                quantity,
+                unit,
+                inventory_items (
+                  id,
+                  name,
+                  base_unit,
+                  base_unit_cost
+                )
+              )
             `,
           )
           .eq("restaurant_id", nextRestaurantId)
@@ -229,7 +247,11 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
       setInventoryItems(
         dedupeByName((inventoryResult.data ?? []) as InventoryItem[]),
       );
-      setRecipes((recipeResult.data ?? []) as Recipe[]);
+      const nextRecipes = (recipeResult.data ?? []) as Recipe[];
+      nextRecipes.forEach((recipe) =>
+        mergeInventoryItemsFromRecipeItems(recipe.recipe_items ?? []),
+      );
+      setRecipes(nextRecipes);
       setIsLoading(false);
     },
     [getRestaurantId],
@@ -344,7 +366,10 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
 
     setRestaurantId(nextRestaurantId);
     setLoadingRecipeItemsForId(recipe.id);
-    const recipeItems = await loadRecipeItems(recipe, nextRestaurantId);
+    const recipeItems =
+      recipe.recipe_items && recipe.recipe_items.length > 0
+        ? recipe.recipe_items
+        : await loadRecipeItems(recipe, nextRestaurantId);
     setLoadingRecipeItemsForId(null);
     setEditingIngredients(
       recipeItems.map((item) => ({
@@ -356,6 +381,11 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
         unit: item.unit ?? "",
       })),
     );
+    window.setTimeout(() => {
+      document
+        .getElementById("recipe-edit-form")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
   }
 
   const editingTotalBatchCost = useMemo(
@@ -396,8 +426,10 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
 
     const formData = new FormData(event.currentTarget);
     const name = String(formData.get("name") ?? "").trim();
+    const description = String(formData.get("description") ?? "").trim();
     const yieldQuantity = Number(formData.get("yield_quantity"));
     const yieldUnit = String(formData.get("yield_unit") ?? "").trim();
+    const subcategory = String(formData.get("subcategory") ?? "").trim();
     const active = formData.get("active") === "on";
 
     const supabase = getSupabaseBrowserClient();
@@ -437,7 +469,9 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
       .update({
         active,
         cost_per_unit: editingCostPerUnit,
+        description: description || null,
         name,
+        subcategory: subcategory || null,
         total_cost: editingTotalBatchCost,
         yield_quantity: yieldQuantity,
         yield_unit: yieldUnit,
@@ -482,7 +516,24 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
     const refreshedItems = await loadRecipeItems(editingRecipe, nextRestaurantId);
     setEditingRecipe(null);
     setEditingIngredients([]);
-    updateRecipeItems(editingRecipe.id, refreshedItems);
+    setRecipes((currentRecipes) =>
+      currentRecipes.map((currentRecipe) =>
+        currentRecipe.id === editingRecipe.id
+          ? {
+              ...currentRecipe,
+              active,
+              cost_per_unit: editingCostPerUnit,
+              description: description || null,
+              name,
+              recipe_items: refreshedItems,
+              subcategory: subcategory || null,
+              total_cost: editingTotalBatchCost,
+              yield_quantity: yieldQuantity,
+              yield_unit: yieldUnit,
+            }
+          : currentRecipe,
+      ),
+    );
     router.refresh();
   }
 
@@ -565,12 +616,35 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
         <RecipeForm inventoryItems={inventoryItems} />
       ) : null}
 
+      <section className="form-card">
+        <label>
+          Filter by subcategory
+          <select
+            onChange={(event) => setSelectedSubcategory(event.target.value)}
+            value={selectedSubcategory}
+          >
+            <option value="all">All subcategories</option>
+            {recipeSubcategories.map((subcategory) => (
+              <option key={subcategory} value={subcategory}>
+                {subcategory}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
+
       {recipes.length === 0 && !isLoading && errors.length === 0 ? (
         <div className="empty-state">No semi-products yet.</div>
       ) : null}
 
       <div className="invoice-list">
-        {recipes.map((recipe) => {
+        {recipes
+          .filter(
+            (recipe) =>
+              selectedSubcategory === "all" ||
+              recipe.subcategory === selectedSubcategory,
+          )
+          .map((recipe) => {
           const recipeCost = getRecipeCost(recipe);
           const totalBatchCost = recipe.total_cost ?? recipeCost;
 
@@ -582,6 +656,14 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
                   <span className="value">
                     {recipe.name ?? "Unnamed semi-product"}
                   </span>
+                </div>
+                <div>
+                  <span className="label">Subcategory</span>
+                  <span className="value">{recipe.subcategory ?? "-"}</span>
+                </div>
+                <div>
+                  <span className="label">Description</span>
+                  <span className="value">{recipe.description || "-"}</span>
                 </div>
                 <div>
                   <span className="label">Yield</span>
@@ -619,7 +701,11 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
               </div>
 
               {editingRecipe?.id === recipe.id ? (
-                <form className="form-card recipe-form" onSubmit={handleUpdateRecipe}>
+                <form
+                  className="form-card recipe-form"
+                  id="recipe-edit-form"
+                  onSubmit={handleUpdateRecipe}
+                >
                   <label>
                     Semi-product name
                     <input
@@ -628,6 +714,31 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
                       required
                       type="text"
                     />
+                  </label>
+
+                  <label>
+                    Description / note
+                    <textarea
+                      defaultValue={recipe.description ?? ""}
+                      name="description"
+                      placeholder="Example: marinade for beef, prepare 24h before use..."
+                      rows={3}
+                    />
+                  </label>
+
+                  <label>
+                    Subcategory
+                    <select
+                      defaultValue={recipe.subcategory ?? ""}
+                      name="subcategory"
+                    >
+                      <option value="">Select subcategory</option>
+                      {recipeSubcategories.map((subcategory) => (
+                        <option key={subcategory} value={subcategory}>
+                          {subcategory}
+                        </option>
+                      ))}
+                    </select>
                   </label>
 
                   <label>
@@ -850,9 +961,9 @@ export function RecipesClient({ saveError }: RecipesClientProps) {
                   </tbody>
                 </table>
               ) : recipe.recipe_items ? (
-                <p className="muted">No ingredients for this recipe.</p>
+                <p className="muted">No ingredients added yet.</p>
               ) : (
-                <p className="muted">Edit to load ingredients.</p>
+                <p className="muted">Loading ingredients...</p>
               )}
             </section>
           );
